@@ -19,16 +19,30 @@ class MessageProvider with ChangeNotifier {
 
     try {
       final fetchedMessages = await _service.getMessages(userId);
-      _messages = fetchedMessages;
-      _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      fetchedMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      
+      // Check if messages have actually changed
+      bool hasChanged = fetchedMessages.length != _messages.length;
+      if (!hasChanged && fetchedMessages.isNotEmpty && _messages.isNotEmpty) {
+        // Even if length is same, check last message as a quick heuristic
+        if (fetchedMessages.last.id != _messages.last.id || 
+            fetchedMessages.last.content != _messages.last.content) {
+          hasChanged = true;
+        }
+      }
+
+      if (hasChanged || showLoading) {
+        _messages = fetchedMessages;
+        if (!showLoading) {
+          notifyListeners();
+        }
+      }
     } catch (e) {
       print('Error fetching messages: $e');
     } finally {
       if (showLoading) {
         _isLoading = false;
         notifyListeners();
-      } else {
-        notifyListeners(); // Still need to notify if new messages were added
       }
     }
   }

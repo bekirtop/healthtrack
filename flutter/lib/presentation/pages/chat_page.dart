@@ -61,11 +61,29 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  void _fetchMessages() {
-    // Only show global loading on the very first load
+  void _fetchMessages() async {
     final provider = Provider.of<MessageProvider>(context, listen: false);
     final isFirstLoad = provider.messages.isEmpty;
-    provider.fetchMessages(widget.currentUserId, showLoading: isFirstLoad);
+    
+    // Remember scroll position or if at bottom before fetch
+    bool wasAtBottom = false;
+    if (_scrollController.hasClients) {
+      wasAtBottom = _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 50;
+    }
+
+    await provider.fetchMessages(widget.currentUserId, showLoading: isFirstLoad);
+    
+    if (isFirstLoad) {
+      // Jump to bottom immediately on first load
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent + 60);
+        }
+      });
+    } else if (wasAtBottom) {
+      // Only animate scroll if user was already at the bottom
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    }
   }
 
   @override
@@ -106,8 +124,6 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<MessageProvider>(context);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
     if (_isLoadingPatientId) {
       return Scaffold(
